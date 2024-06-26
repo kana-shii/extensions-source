@@ -11,7 +11,6 @@ class YaoiFanClub : ZeistManga(
     "pt-BR",
 ) {
 
-    // genres not parsed, everything working. chapters only works once you open one up through webview ???????????????????????????
     override val popularMangaSelector = "#PopularPosts3 article"
     override val popularMangaSelectorTitle = ".post-title a"
     override val popularMangaSelectorUrl = popularMangaSelectorTitle
