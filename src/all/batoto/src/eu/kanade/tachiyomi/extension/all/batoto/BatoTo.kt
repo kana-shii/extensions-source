@@ -340,7 +340,7 @@ open class BatoTo(
 
         // Apply regex to the main title (removing the pipe condition)
         val cleanedTitle = if (shouldRemoveOfficial()) {
-            originalTitle.replace(Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[[^]]*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|([|/|~].*))\\s*$")) { matchResult ->
+            originalTitle.replace(Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[[^]]*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|([|/|~].*)|﹛[^﹜]*﹜)\\s*$")) { matchResult ->
                 matchResult.groupValues[1].trim() // Extract the first group (cleaned title)
             }.replace(Regex("\\(\\s*\\)"), "") // Remove empty parentheses separately
         } else {
