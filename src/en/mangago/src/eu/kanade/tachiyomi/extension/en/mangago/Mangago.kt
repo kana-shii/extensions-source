@@ -162,13 +162,19 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
 
     override fun searchMangaNextPageSelector() = genreListingNextPageSelector
 
-    private val titleRegex = Regex("""\(yaoi\)|\{Official\}|«Official»|〘Official〙|\(Official\)|\s\[Official]|\s「Official」|『Official』|\s?/Official\b""", RegexOption.IGNORE_CASE)
-    private fun titleVersion(title: String) = title.replace(titleRegex, "").trim()
-
     override fun mangaDetailsParse(document: Document) = SManga.create().apply {
+        // Apply regex to the main title (removing the pipe condition)
+        val titleVersion = if (isRemoveTitleVersion()) {
+            title.replace(Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[[^]]*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|([|/|~].*))\\s*$")) { matchResult ->
+                matchResult.groupValues[1].trim() // Extract the first group (cleaned title)
+            }.replace(Regex("\\(\\s*\\)"), "") // Remove empty parentheses separately
+        } else {
+            title
+        }
+
         title = document.selectFirst(".w-title h1")!!.text()
         if (isRemoveTitleVersion()) {
-            title = titleVersion(title)
+            title = titleVersion
         }
         document.getElementById("information")!!.let {
             thumbnail_url = it.selectFirst("img")!!.attr("abs:src")
