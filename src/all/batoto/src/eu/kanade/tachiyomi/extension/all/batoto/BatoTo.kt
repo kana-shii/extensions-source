@@ -338,13 +338,15 @@ open class BatoTo(
         val description = infoElement.select("div.limit-html").text() + "\n" +
             infoElement.select(".episode-list > .alert-warning").text().trim()
 
+        // Apply regex to the main title (removing the pipe condition)
         val cleanedTitle = if (shouldRemoveOfficial()) {
-            originalTitle.replace(Regex("(?:\\(\\s*\\)|\\{[^{}]*\\}|\\[[^]]*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|([|/|~].*)|﹛[^﹜]*﹜)\\s*$")) { matchResult ->
-                matchResult.groupValues[1].trim()
-            }
+            originalTitle.replace(Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[[^]]*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|([|/|~].*)|﹛[^﹜]*﹜)\\s*$")) { matchResult ->
+                matchResult.groupValues[1].trim() // Extract the first group (cleaned title)
+            }.replace(Regex("\\(\\s*\\)"), "") // Remove empty parentheses separately
         } else {
             originalTitle
         }
+
         manga.title = cleanedTitle
         manga.author = infoElement.select("div.attr-item:contains(author) span").text()
         manga.artist = infoElement.select("div.attr-item:contains(artist) span").text()
