@@ -170,8 +170,7 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
 
     override fun searchMangaNextPageSelector() = genreListingNextPageSelector
 
-    private val titleRegex = Regex("((\\{[^{}]*\\}|\\[[^]]*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|\\([^)]*\\)|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜))\\s*", RegexOption.IGNORE_CASE)
-
+    private val titleRegex = Regex("(\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|\\([^)]*\\)|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*", RegexOption.IGNORE_CASE)
     private fun titleVersion(title: String) = title.replace(titleRegex, "").trim()
 
     override fun mangaDetailsParse(document: Document) = SManga.create().apply {
