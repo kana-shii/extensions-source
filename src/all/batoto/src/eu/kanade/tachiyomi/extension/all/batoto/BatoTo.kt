@@ -328,10 +328,6 @@ open class BatoTo(
         return super.mangaDetailsRequest(manga)
     }
 
-    private val titleRegex = Regex("(\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|\\([^)]*\\)|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*", RegexOption.IGNORE_CASE)
-
-    private fun titleVersion(title: String) = title.replace(titleRegex, "").trim()
-
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div#mainer div.container-fluid")
         val manga = SManga.create()
@@ -341,13 +337,15 @@ open class BatoTo(
         val alternativeTitles = document.select("div.pb-2.alias-set.line-b-f").text()
         val description = infoElement.select("div.limit-html").text() + "\n" +
             infoElement.select(".episode-list > .alert-warning").text().trim()
-
-        manga.title = if (shouldRemoveOfficial()) {
-            titleVersion(originalTitle)
+        val cleanedTitle = if (shouldRemoveOfficial()) {
+            originalTitle.replace(Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[[^]]*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|([|/|~].*)|﹛[^﹜]*﹜)\\s*$")) { matchResult ->
+                matchResult.groupValues[1].trim() // Extract the first group (cleaned title)
+            }.replace(Regex("\\(\\s*\\)"), "") // Remove empty parentheses separately
         } else {
             originalTitle
         }
 
+        manga.title = cleanedTitle
         manga.author = infoElement.select("div.attr-item:contains(author) span").text()
         manga.artist = infoElement.select("div.attr-item:contains(artist) span").text()
         manga.status = parseStatus(workStatus, uploadStatus)
