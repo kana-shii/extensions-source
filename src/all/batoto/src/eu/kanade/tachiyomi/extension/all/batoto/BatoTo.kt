@@ -106,8 +106,9 @@ open class BatoTo(
         val titleRegexPref = EditTextPreference(screen.context).apply {
             key = TITLE_REGEX_PREF
             title = "Custom Title Regex"
-            summary = "Enter a custom regex pattern to clean titles (advanced users only)"
-            dialogMessage = "Default: () ; {} ; [] ; «» ; 〘〙 ; 「」 ; 『』 ; ≪≫ ; ﹛﹜ ; 𖤍𖤍 ; / ; ~ ; |"
+            summary = "Enter a custom regex pattern to clean titles (advanced users only) " +
+                "Default: () ; {} ; [] ; «» ; 〘〙 ; 「」 ; 『』 ; ≪≫ ; ﹛﹜ ; 𖤍𖤍 ; / ; ~ ; |"
+            dialogMessage = "Do not put the regex between parentheses "
             val defaultValue = "(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|﹛[^﹜]*﹜|𖤍.+?𖤍|/.+?)\\s*|([|/~].*)"
             setDefaultValue(defaultValue)
 
