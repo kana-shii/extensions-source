@@ -58,7 +58,7 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
     }
 
     private val titleRegex by lazy {
-        val pattern = preferences.getString("title_regex_pattern", "") // Use a key like "title_regex_pattern"
+        val pattern = preferences.getString(TITLE_REGEX_PREF, "")
         if (pattern.isNullOrEmpty()) {
             // Default pattern
             Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))", RegexOption.IGNORE_CASE)
