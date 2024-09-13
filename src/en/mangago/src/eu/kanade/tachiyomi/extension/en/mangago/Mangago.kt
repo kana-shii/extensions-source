@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.util.Base64
+import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
 import app.cash.quickjs.QuickJs
@@ -55,6 +56,17 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
+
+    private val titleRegex by lazy {
+        val pattern = preferences.getString("title_regex_pattern", "") // Use a key like "title_regex_pattern"
+        if (pattern.isNullOrEmpty()) {
+            // Default pattern
+            Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))", RegexOption.IGNORE_CASE)
+        } else {
+            Regex(pattern, RegexOption.IGNORE_CASE)
+        }
+    }
+
 
     override val client = network.cloudflareClient.newBuilder()
         .rateLimit(1, 2)
@@ -170,13 +182,11 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
 
     override fun searchMangaNextPageSelector() = genreListingNextPageSelector
 
-    private val titleRegex = Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))", RegexOption.IGNORE_CASE)
-    private fun titleVersion(title: String) = title.replace(titleRegex, "").trim()
 
     override fun mangaDetailsParse(document: Document) = SManga.create().apply {
         title = document.selectFirst(".w-title h1")!!.text()
         if (isRemoveTitleVersion()) {
-            title = titleVersion(title)
+            title = title.replace(titleRegex, "").trim()
         }
         document.getElementById("information")!!.let {
             thumbnail_url = it.selectFirst("img")!!.attr("abs:src")
@@ -573,9 +583,23 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
                 "You might also want to clear the database in advanced settings."
             setDefaultValue(false)
         }.let(screen::addPreference)
+
+        EditTextPreference(screen.context).apply {
+            key = TITLE_REGEX_PREF
+            title = "Title regex pattern"
+            summary = "Enter a custom regex pattern to clean titles (advanced users only)"
+            setDefaultValue("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))")
+
+            setOnPreferenceChangeListener { _, newValue ->
+                preferences.edit().putString("title_regex_pattern", newValue.toString()).apply()
+                true
+            }
+        }.let(screen::addPreference)
+
         addRandomUAPreferenceToScreen(screen)
     }
     companion object {
         private const val REMOVE_TITLE_VERSION_PREF = "REMOVE_TITLE_VERSION"
+        private const val TITLE_REGEX_PREF = "title_regex_pattern"
     }
 }
