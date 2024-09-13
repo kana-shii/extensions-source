@@ -53,10 +53,11 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
 
-    private var titleRegex: Regex = Regex(
-        "(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))",
-        RegexOption.IGNORE_CASE,
-    )
+    private var titleRegex: Regex =
+        Regex(
+            "(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|﹛[^﹜]*﹜|𖤍.+?𖤍|/.+?)\\s*|([|/~].*)",
+            RegexOption.IGNORE_CASE,
+        )
 
     override val client = network.cloudflareClient.newBuilder()
         .rateLimit(1, 2)
@@ -501,15 +502,6 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
     }
     private fun isRemoveTitleVersion() = preferences.getBoolean(REMOVE_TITLE_VERSION_PREF, false)
 
-    private fun getTitleRegex(): Regex {
-        val pattern = preferences.getString("TITLE_REGEX_PATTERN", "")
-        return if (pattern.isNullOrEmpty()) {
-            Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))", RegexOption.IGNORE_CASE)
-        } else {
-            Regex(pattern, RegexOption.IGNORE_CASE)
-        }
-    }
-
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         SwitchPreferenceCompat(screen.context).apply {
             key = REMOVE_TITLE_VERSION_PREF
@@ -525,7 +517,8 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
             key = TITLE_REGEX_PREF
             title = "Custom Title Regex"
             summary = "Enter a custom regex pattern to clean titles (advanced users only)"
-            val defaultValue = "(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))"
+            dialogMessage = "Default: () ; {} ; [] ; «» ; 〘〙 ; 「」 ; 『』 ; ≪≫ ; ﹛﹜ ; 𖤍𖤍 ; / ; ~ ; |"
+            val defaultValue = "(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|﹛[^﹜]*﹜|𖤍.+?𖤍|/.+?)\\s*|([|/~].*)"
             setDefaultValue(defaultValue)
 
             setOnPreferenceChangeListener { _, newValue ->

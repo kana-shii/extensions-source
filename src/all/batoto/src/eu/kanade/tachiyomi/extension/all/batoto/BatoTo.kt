@@ -43,7 +43,6 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import kotlin.text.isBlank
 
 open class BatoTo(
     final override val lang: String,
@@ -108,16 +107,17 @@ open class BatoTo(
             key = TITLE_REGEX_PREF
             title = "Custom Title Regex"
             summary = "Enter a custom regex pattern to clean titles (advanced users only)"
-            val defaultValue = "(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))"
+            dialogMessage = "Default: () ; {} ; [] ; «» ; 〘〙 ; 「」 ; 『』 ; ≪≫ ; ﹛﹜ ; 𖤍𖤍 ; / ; ~ ; |"
+            val defaultValue = "(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|﹛[^﹜]*﹜|𖤍.+?𖤍|/.+?)\\s*|([|/~].*)"
             setDefaultValue(defaultValue)
 
             setOnPreferenceChangeListener { _, newValue ->
                 val regexPattern = newValue.toString()
                 if (regexPattern.isBlank()) {
-                    text = defaultValue
                     false
                 } else {
-                    preferences.edit().putString(TITLE_REGEX_PREF, regexPattern).apply()
+                    preferences.edit().putString("TITLE_REGEX_PATTERN", regexPattern).apply()
+                    titleRegex = Regex(regexPattern, RegexOption.IGNORE_CASE)
                     true
                 }
             }
@@ -130,7 +130,7 @@ open class BatoTo(
 
     private fun getMirrorPref(): String? = preferences.getString("${MIRROR_PREF_KEY}_$lang", MIRROR_PREF_DEFAULT_VALUE)
     private fun getAltChapterListPref(): Boolean = preferences.getBoolean("${ALT_CHAPTER_LIST_PREF_KEY}_$lang", ALT_CHAPTER_LIST_PREF_DEFAULT_VALUE)
-    private fun shouldRemoveOfficial(): Boolean {
+    private fun isRemoveTitleVersion(): Boolean {
         return preferences.getBoolean("${REMOVE_TITLE_VERSION_PREF}_$lang", false)
     }
 
@@ -348,6 +348,8 @@ open class BatoTo(
         }
         return super.mangaDetailsRequest(manga)
     }
+    private var titleRegex: Regex =
+        Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|﹛[^﹜]*﹜|𖤍.+?𖤍|/.+?)\\s*|([|/~].*)", RegexOption.IGNORE_CASE)
 
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div#mainer div.container-fluid")
@@ -358,13 +360,14 @@ open class BatoTo(
         val alternativeTitles = document.select("div.pb-2.alias-set.line-b-f").text()
         val description = infoElement.select("div.limit-html").text() + "\n" +
             infoElement.select(".episode-list > .alert-warning").text().trim()
-        val cleanedTitle = if (shouldRemoveOfficial()) {
-            originalTitle.replace(getTitleRegex()) { matchResult ->
+        val cleanedTitle = if (isRemoveTitleVersion()) {
+            originalTitle.replace(titleRegex) { matchResult ->
                 matchResult.groupValues.getOrNull(1)?.trim() ?: ""
             }
         } else {
             originalTitle
         }
+
 
         manga.title = cleanedTitle
         manga.author = infoElement.select("div.attr-item:contains(author) span").text()
@@ -375,14 +378,6 @@ open class BatoTo(
             if (alternativeTitles.isNotBlank()) "\n\nAlternative Titles:\n$alternativeTitles" else ""
         manga.thumbnail_url = document.select("div.attr-cover img").attr("abs:src")
         return manga
-    }
-    private fun getTitleRegex(): Regex {
-        val pattern = preferences.getString(TITLE_REGEX_PREF, "")
-        return if (pattern.isNullOrEmpty()) {
-            Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))|([|/|~].*)", RegexOption.IGNORE_CASE)
-        } else {
-            Regex(pattern, RegexOption.IGNORE_CASE)
-        }
     }
     private fun parseStatus(workStatus: String?, uploadStatus: String?) = when {
         workStatus == null -> SManga.UNKNOWN
