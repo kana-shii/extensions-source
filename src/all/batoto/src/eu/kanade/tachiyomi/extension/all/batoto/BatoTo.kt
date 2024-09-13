@@ -114,9 +114,11 @@ open class BatoTo(
             setOnPreferenceChangeListener { _, newValue ->
                 val regexPattern = newValue.toString()
                 if (regexPattern.isBlank()) {
+                    text = defaultValue
                     false
                 } else {
                     preferences.edit().putString("TITLE_REGEX_PATTERN", regexPattern).apply()
+                    titleRegex = Regex(regexPattern, RegexOption.IGNORE_CASE)
                     titleRegex = Regex(regexPattern, RegexOption.IGNORE_CASE)
                     true
                 }
@@ -367,7 +369,6 @@ open class BatoTo(
         } else {
             originalTitle
         }
-
 
         manga.title = cleanedTitle
         manga.author = infoElement.select("div.attr-item:contains(author) span").text()
