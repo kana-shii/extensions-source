@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.util.Base64
+import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
 import app.cash.quickjs.QuickJs
@@ -51,6 +52,11 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
+
+    private var titleRegex: Regex = Regex(
+        "(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))",
+        RegexOption.IGNORE_CASE,
+    )
 
     override val client = network.cloudflareClient.newBuilder()
         .rateLimit(1, 2)
@@ -162,13 +168,10 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
 
     override fun searchMangaNextPageSelector() = genreListingNextPageSelector
 
-    private val titleRegex = Regex("""\(yaoi\)|\{Official\}|«Official»|〘Official〙|\(Official\)|\s\[Official]|\s「Official」|『Official』|\s?/Official\b""", RegexOption.IGNORE_CASE)
-    private fun titleVersion(title: String) = title.replace(titleRegex, "").trim()
-
     override fun mangaDetailsParse(document: Document) = SManga.create().apply {
         title = document.selectFirst(".w-title h1")!!.text()
         if (isRemoveTitleVersion()) {
-            title = titleVersion(title)
+            title = title.replace(titleRegex, "").trim()
         }
         document.getElementById("information")!!.let {
             thumbnail_url = it.selectFirst("img")!!.attr("abs:src")
@@ -498,6 +501,15 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
     }
     private fun isRemoveTitleVersion() = preferences.getBoolean(REMOVE_TITLE_VERSION_PREF, false)
 
+    private fun getTitleRegex(): Regex {
+        val pattern = preferences.getString("TITLE_REGEX_PATTERN", "")
+        return if (pattern.isNullOrEmpty()) {
+            Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))", RegexOption.IGNORE_CASE)
+        } else {
+            Regex(pattern, RegexOption.IGNORE_CASE)
+        }
+    }
+
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         SwitchPreferenceCompat(screen.context).apply {
             key = REMOVE_TITLE_VERSION_PREF
@@ -508,8 +520,29 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
                 "You might also want to clear the database in advanced settings."
             setDefaultValue(false)
         }.let(screen::addPreference)
+
+        EditTextPreference(screen.context).apply {
+            key = TITLE_REGEX_PREF
+            title = "Custom Title Regex"
+            summary = "Enter a custom regex pattern to clean titles (advanced users only)"
+            val defaultValue = "(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))"
+            setDefaultValue(defaultValue)
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val regexPattern = newValue.toString()
+                if (regexPattern.isBlank()) {
+                    text = defaultValue
+                    false
+                } else {
+                    preferences.edit().putString("TITLE_REGEX_PATTERN", regexPattern).apply()
+                    titleRegex = Regex(regexPattern, RegexOption.IGNORE_CASE)
+                    true
+                }
+            }
+        }.let(screen::addPreference)
     }
     companion object {
         private const val REMOVE_TITLE_VERSION_PREF = "REMOVE_TITLE_VERSION"
+        private const val TITLE_REGEX_PREF = "TITLE_REGEX_PATTERN"
     }
 }

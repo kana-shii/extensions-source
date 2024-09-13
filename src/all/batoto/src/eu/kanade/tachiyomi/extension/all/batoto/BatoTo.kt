@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.extension.all.batoto
 import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.CheckBoxPreference
+import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.lib.cryptoaes.CryptoAES
@@ -42,6 +43,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.text.isBlank
 
 open class BatoTo(
     final override val lang: String,
@@ -89,28 +91,47 @@ open class BatoTo(
             }
         }
         val removeOfficialPref = CheckBoxPreference(screen.context).apply {
-            key = "${REMOVE_OFFICIAL_PREF_KEY}_$lang"
+            key = "${REMOVE_TITLE_VERSION_PREF}_$lang"
             title = "Remove version information from entry titles"
             summary = "This removes version tags like '(Official)' or '(Yaoi)' from entry titles " +
                 "and helps identify duplicate entries in your library. " +
                 "To update existing entries, remove them from your library (unfavorite) and refresh manually. " +
                 "You might also want to clear the database in advanced settings."
-            setDefaultValue(false) // Default to not removing
+            setDefaultValue(false)
 
             setOnPreferenceChangeListener { _, newValue ->
                 val checkValue = newValue as Boolean
-                preferences.edit().putBoolean("${REMOVE_OFFICIAL_PREF_KEY}_$lang", checkValue).commit()
+                preferences.edit().putBoolean("${REMOVE_TITLE_VERSION_PREF}_$lang", checkValue).commit()
+            }
+        }
+        val titleRegexPref = EditTextPreference(screen.context).apply {
+            key = TITLE_REGEX_PREF
+            title = "Custom Title Regex"
+            summary = "Enter a custom regex pattern to clean titles (advanced users only)"
+            val defaultValue = "(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))"
+            setDefaultValue(defaultValue)
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val regexPattern = newValue.toString()
+                if (regexPattern.isBlank()) {
+                    text = defaultValue
+                    false
+                } else {
+                    preferences.edit().putString(TITLE_REGEX_PREF, regexPattern).apply()
+                    true
+                }
             }
         }
         screen.addPreference(mirrorPref)
         screen.addPreference(altChapterListPref)
         screen.addPreference(removeOfficialPref)
+        screen.addPreference(titleRegexPref)
     }
 
     private fun getMirrorPref(): String? = preferences.getString("${MIRROR_PREF_KEY}_$lang", MIRROR_PREF_DEFAULT_VALUE)
     private fun getAltChapterListPref(): Boolean = preferences.getBoolean("${ALT_CHAPTER_LIST_PREF_KEY}_$lang", ALT_CHAPTER_LIST_PREF_DEFAULT_VALUE)
     private fun shouldRemoveOfficial(): Boolean {
-        return preferences.getBoolean("${REMOVE_OFFICIAL_PREF_KEY}_$lang", false)
+        return preferences.getBoolean("${REMOVE_TITLE_VERSION_PREF}_$lang", false)
     }
 
     override val supportsLatest = true
@@ -338,7 +359,7 @@ open class BatoTo(
         val description = infoElement.select("div.limit-html").text() + "\n" +
             infoElement.select(".episode-list > .alert-warning").text().trim()
         val cleanedTitle = if (shouldRemoveOfficial()) {
-            originalTitle.replace(Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))|([|/|~].*)")) { matchResult ->
+            originalTitle.replace(getTitleRegex()) { matchResult ->
                 matchResult.groupValues.getOrNull(1)?.trim() ?: ""
             }
         } else {
@@ -354,6 +375,14 @@ open class BatoTo(
             if (alternativeTitles.isNotBlank()) "\n\nAlternative Titles:\n$alternativeTitles" else ""
         manga.thumbnail_url = document.select("div.attr-cover img").attr("abs:src")
         return manga
+    }
+    private fun getTitleRegex(): Regex {
+        val pattern = preferences.getString(TITLE_REGEX_PREF, "")
+        return if (pattern.isNullOrEmpty()) {
+            Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))|([|/|~].*)", RegexOption.IGNORE_CASE)
+        } else {
+            Regex(pattern, RegexOption.IGNORE_CASE)
+        }
     }
     private fun parseStatus(workStatus: String?, uploadStatus: String?) = when {
         workStatus == null -> SManga.UNKNOWN
@@ -974,7 +1003,8 @@ open class BatoTo(
     companion object {
         private const val MIRROR_PREF_KEY = "MIRROR"
         private const val MIRROR_PREF_TITLE = "Mirror"
-        private const val REMOVE_OFFICIAL_PREF_KEY = "remove_official"
+        private const val REMOVE_TITLE_VERSION_PREF = "REMOVE_TITLE_VERSION"
+        private const val TITLE_REGEX_PREF = "TITLE_REGEX_PATTERN"
         private val MIRROR_PREF_ENTRIES = arrayOf(
             "bato.to",
             "batocomic.com",
