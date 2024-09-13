@@ -338,9 +338,9 @@ open class BatoTo(
         val description = infoElement.select("div.limit-html").text() + "\n" +
             infoElement.select(".episode-list > .alert-warning").text().trim()
         val cleanedTitle = if (shouldRemoveOfficial()) {
-            originalTitle.replace(Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[[^]]*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|([|/|~].*)|﹛[^﹜]*﹜)\\s*$")) { matchResult ->
-                matchResult.groupValues[1].trim() // Extract the first group (cleaned title)
-            }.replace(Regex("\\(\\s*\\)"), "") // Remove empty parentheses separately
+            originalTitle.replace(Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*\\]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|[|/\\s]?\\S*[|/\\s]?|﹛[^﹜]*﹜|𖤍.+?𖤍|\\/.+?)\\s*|(\\(\\s*\\))|([|/|~].*)")) { matchResult ->
+                matchResult.groupValues.getOrNull(1)?.trim() ?: ""
+            }
         } else {
             originalTitle
         }
