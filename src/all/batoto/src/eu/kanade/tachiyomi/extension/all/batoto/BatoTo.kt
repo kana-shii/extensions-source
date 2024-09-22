@@ -89,7 +89,7 @@ open class BatoTo(
             }
         }
         val removeOfficialPref = CheckBoxPreference(screen.context).apply {
-            key = "${REMOVE_TITLE_VERSION_PREF}_$lang"
+            key = "${REMOVE_OFFICIAL_PREF_KEY}_$lang"
             title = "Remove version information from entry titles"
             summary = "This removes version tags like '(Official)' or '(Yaoi)' from entry titles " +
                 "and helps identify duplicate entries in your library. " +
@@ -104,8 +104,8 @@ open class BatoTo(
 
     private fun getMirrorPref(): String? = preferences.getString("${MIRROR_PREF_KEY}_$lang", MIRROR_PREF_DEFAULT_VALUE)
     private fun getAltChapterListPref(): Boolean = preferences.getBoolean("${ALT_CHAPTER_LIST_PREF_KEY}_$lang", ALT_CHAPTER_LIST_PREF_DEFAULT_VALUE)
-    private fun isRemoveTitleVersion(): Boolean {
-        return preferences.getBoolean("${REMOVE_TITLE_VERSION_PREF}_$lang", false)
+    private fun shouldRemoveOfficial(): Boolean {
+        return preferences.getBoolean("${REMOVE_OFFICIAL_PREF_KEY}_$lang", false)
     }
 
     override val supportsLatest = true
@@ -323,7 +323,7 @@ open class BatoTo(
         return super.mangaDetailsRequest(manga)
     }
     private var titleRegex: Regex =
-        Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|﹛[^﹜]*﹜|〖[^〖〗]*〗|𖤍.+?𖤍|/.+?)\\s*|([|/~].*)", RegexOption.IGNORE_CASE)
+        Regex("(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|﹛[^﹜]*﹜|〖[^〖〗]*〗|𖤍.+?𖤍|/.+?)\\s*|([|/~].*)|-.*-")
 
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div#mainer div.container-fluid")
@@ -334,7 +334,7 @@ open class BatoTo(
         val alternativeTitles = document.select("div.pb-2.alias-set.line-b-f").text()
         val description = infoElement.select("div.limit-html").text() + "\n" +
             infoElement.select(".episode-list > .alert-warning").text().trim()
-        val cleanedTitle = if (isRemoveTitleVersion()) {
+        val cleanedTitle = if (shouldRemoveOfficial()) {
             originalTitle.replace(titleRegex, "").trim()
         } else {
             originalTitle
@@ -969,7 +969,7 @@ open class BatoTo(
     companion object {
         private const val MIRROR_PREF_KEY = "MIRROR"
         private const val MIRROR_PREF_TITLE = "Mirror"
-        private const val REMOVE_TITLE_VERSION_PREF = "REMOVE_TITLE_VERSION"
+        private const val REMOVE_OFFICIAL_PREF_KEY = "remove_official"
         private val MIRROR_PREF_ENTRIES = arrayOf(
             "bato.to",
             "batocomic.com",
