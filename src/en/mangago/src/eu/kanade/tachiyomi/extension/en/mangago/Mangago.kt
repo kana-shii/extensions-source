@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.util.Base64
+import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
 import app.cash.quickjs.QuickJs
@@ -575,9 +576,31 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
                 "You might also want to clear the database in advanced settings."
             setDefaultValue(false)
         }.let(screen::addPreference)
+
+        EditTextPreference(screen.context).apply {
+            key = TITLE_REGEX_PREF
+            title = "Custom Title Regex"
+            summary = "Enter a custom regex pattern to clean titles (advanced users only)"
+            dialogMessage = "Put the regex between parentheses"
+            val defaultValue = "(?:\\([^()]*\\)|\\{[^{}]*\\}|\\[(?:(?!]).)*]|«[^»]*»|〘[^〙]*〙|「[^」]*」|『[^』]*』|≪[^≫]*≫|﹛[^﹜]*﹜|〖[^〖〗]*〗|𖤍.+?𖤍|《[^》]*》|⌜.+?⌝|⟨[^⟩]*⟩|/.+)"
+            setDefaultValue(defaultValue)
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val regexPattern = newValue.toString()
+                if (regexPattern.isBlank()) {
+                    text = defaultValue
+                    false
+                } else {
+                    preferences.edit().putString("TITLE_REGEX_PATTERN", regexPattern).apply()
+                    titleRegex = Regex(regexPattern, RegexOption.IGNORE_CASE)
+                    true
+                }
+            }
+        }.let(screen::addPreference)
         addRandomUAPreferenceToScreen(screen)
     }
     companion object {
         private const val REMOVE_TITLE_VERSION_PREF = "REMOVE_TITLE_VERSION"
+        private const val TITLE_REGEX_PREF = "TITLE_REGEX_PATTERN"
     }
 }
