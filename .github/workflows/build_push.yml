@@ -10,7 +10,8 @@ on:
       - '!.github/**'
       - '.github/scripts/**'
       - '.github/workflows/build_push.yml'
-
+  workflow_dispatch:
+  
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: true
