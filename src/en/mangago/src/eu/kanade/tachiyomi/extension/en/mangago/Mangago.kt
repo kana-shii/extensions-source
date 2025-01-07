@@ -182,13 +182,14 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
 
         document.getElementById("information")!!.let {
             thumbnail_url = it.selectFirst("img")!!.attr("abs:src")
+            var alternativeTitles = ""
             description = it.selectFirst(".manga_summary")?.let { summary ->
                 summary.selectFirst("font")?.remove()
                 summary.text()
             }
             it.select(".manga_info li, .manga_right tr").forEach { el ->
                 when (el.selectFirst("b, label")!!.text().lowercase()) {
-                    "alternative:" -> description += "\n\n${el.text()}"
+                    "alternative:" -> alternativeTitles = el.text().substringAfter(":").trim()
                     "status:" -> status = when (el.selectFirst("span")!!.text().lowercase()) {
                         "ongoing" -> SManga.ONGOING
                         "completed" -> SManga.COMPLETED
@@ -196,6 +197,28 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
                     }
                     "author(s):", "author:" -> author = el.select("a").joinToString { it.text() }
                     "genre(s):" -> genre = el.select("a").joinToString { it.text() }
+                }
+            }
+
+            description = buildString {
+                append(description)
+                val names = alternativeTitles.takeUnless { it.isBlank() || it.trim().equals("none", ignoreCase = true) }?.let {
+                    var semicolonSeparated = it.replace(Regex("\\s*(?:;\\s*){2,}"), ";")
+                    if (semicolonSeparated.contains(';')) {
+                        semicolonSeparated = semicolonSeparated.replace(Regex(";\\s*$"), "")
+                        semicolonSeparated.split(Regex("\\s*;\\s*"))
+                    } else {
+                        val commaSeparated = it.replace(Regex(",\\s*$"), "")
+                        commaSeparated.split(Regex("\\s*,\\s*"))
+                    }
+                }
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotEmpty() }
+                    ?.map { "• $it" }
+                    ?.joinToString("\n")
+
+                if (!names.isNullOrEmpty()) {
+                    append("\n\nAlternative Names:\n", names)
                 }
             }
         }
