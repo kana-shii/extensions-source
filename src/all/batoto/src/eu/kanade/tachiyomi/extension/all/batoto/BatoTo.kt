@@ -360,21 +360,47 @@ open class BatoTo(
         manga.artist = infoElement.select("div.attr-item:contains(artist) span").text()
         manga.status = parseStatus(workStatus, uploadStatus)
         manga.genre = infoElement.select(".attr-item b:contains(genres) + span ").joinToString { it.text() }
-        manga.description = description +
-            if (alternativeTitles.isNotBlank()) "\n\nAlternative Titles:\n$alternativeTitles" else ""
+
+        manga.description = buildString {
+            val names = alternativeTitles.takeUnless { it.isBlank() }
+                ?.split("/")
+                ?.map { "• ${it.trim()}" }
+                ?.joinToString("\n")
+
+            if (description.isBlank()) {
+                if (!names.isNullOrEmpty()) {
+                    append("Alternative Names:\n", names)
+                }
+            } else {
+                append(description)
+                if (!names.isNullOrEmpty()) {
+                    append("\n\nAlternative Names:\n", names)
+                }
+            }
+        }
+
         manga.thumbnail_url = document.select("div.attr-cover img").attr("abs:src")
         return manga
     }
-    private fun parseStatus(workStatus: String?, uploadStatus: String?) = when {
-        workStatus == null -> SManga.UNKNOWN
-        workStatus.contains("Ongoing") -> SManga.ONGOING
-        workStatus.contains("Cancelled") -> SManga.CANCELLED
-        workStatus.contains("Hiatus") -> SManga.ON_HIATUS
-        workStatus.contains("Completed") -> when {
-            uploadStatus?.contains("Ongoing") == true -> SManga.PUBLISHING_FINISHED
-            else -> SManga.COMPLETED
+
+    private fun parseStatus(workStatus: String?, uploadStatus: String?): Int {
+        return when {
+            workStatus.isNullOrBlank() -> when (uploadStatus?.trim()) {
+                "Ongoing" -> SManga.ONGOING
+                "Completed" -> SManga.COMPLETED
+                "Hiatus" -> SManga.ON_HIATUS
+                "Cancelled" -> SManga.CANCELLED
+                else -> SManga.UNKNOWN
+            }
+            workStatus.trim() == "Ongoing" -> SManga.ONGOING
+            workStatus.trim() == "Cancelled" -> SManga.CANCELLED
+            workStatus.trim() == "Hiatus" -> SManga.ON_HIATUS
+            workStatus.trim() == "Completed" -> when (uploadStatus?.trim()) {
+                "Ongoing" -> SManga.PUBLISHING_FINISHED
+                else -> SManga.COMPLETED
+            }
+            else -> SManga.UNKNOWN
         }
-        else -> SManga.UNKNOWN
     }
 
     private fun altChapterParse(response: Response): List<SChapter> {
