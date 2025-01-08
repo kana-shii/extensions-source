@@ -85,7 +85,7 @@ open class NHentai(
             entries = arrayOf("Full Title", "Short Title")
             entryValues = arrayOf("full", "short")
             summary = "%s"
-            setDefaultValue("full")
+            setDefaultValue("short")
 
             setOnPreferenceChangeListener { _, newValue ->
                 displayFullTitle = when (newValue) {
