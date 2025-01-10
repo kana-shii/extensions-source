@@ -7,6 +7,7 @@ import android.net.Uri
 import android.webkit.CookieManager
 import androidx.preference.CheckBoxPreference
 import androidx.preference.EditTextPreference
+import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.asObservableSuccess
@@ -60,6 +61,14 @@ abstract class EHentai(
 
     private var lastMangaId = ""
 
+    // Title Preference Logic
+    private var displayFullTitle: Boolean = when (preferences.getString(TITLE_PREF, "full")) {
+        "full" -> true
+        else -> false
+    }
+    private val shortenTitleRegex = Regex("""(\[[^]]*]|[({][^)}]*[)}])""")
+    private fun String.shortenTitle() = this.replace(shortenTitleRegex, "").trim()
+
     // true if lang is a "natural human language"
     private fun isLangNatural(): Boolean = lang !in listOf("none", "other")
 
@@ -83,7 +92,9 @@ abstract class EHentai(
                 SManga.create().apply {
                     // Get title
                     it.selectFirst("a")?.apply {
-                        title = this.select(".glink").text()
+                        title = this.select(".glink").text().let {
+                            if (displayFullTitle) it.trim() else it.shortenTitle()
+                        }
                         url = ExGalleryMetadata.normalizeUrl(attr("href"))
                         if (i == mangaElements.lastIndex) {
                             lastMangaId = ExGalleryMetadata.galleryId(attr("href"))
@@ -109,7 +120,7 @@ abstract class EHentai(
         listOf(
             SChapter.create().apply {
                 url = manga.url
-                name = "Chapter"
+                name = "Chapter 1"
                 chapter_number = 1f
             },
         ),
@@ -550,7 +561,7 @@ abstract class EHentai(
         private const val ENFORCE_LANGUAGE_PREF_KEY = "ENFORCE_LANGUAGE"
         private const val ENFORCE_LANGUAGE_PREF_TITLE = "Enforce Language"
         private const val ENFORCE_LANGUAGE_PREF_SUMMARY = "If checked, forces browsing of manga matching a language tag"
-        private const val ENFORCE_LANGUAGE_PREF_DEFAULT_VALUE = false
+        private const val ENFORCE_LANGUAGE_PREF_DEFAULT_VALUE = true
 
         private const val MEMBER_ID_PREF_KEY = "MEMBER_ID"
         private const val MEMBER_ID_PREF_TITLE = "ipb_member_id"
@@ -561,6 +572,8 @@ abstract class EHentai(
         private const val PASS_HASH_PREF_TITLE = "ipb_pass_hash"
         private const val PASS_HASH_PREF_SUMMARY = "ipb_pass_hash value"
         private const val PASS_HASH_PREF_DEFAULT_VALUE = ""
+
+        private const val TITLE_PREF = "Display manga title as:"
     }
 
     // Preferences
@@ -593,6 +606,24 @@ abstract class EHentai(
 
             setDefaultValue(PASS_HASH_PREF_DEFAULT_VALUE)
         }
+
+        val titlePref = ListPreference(screen.context).apply {
+            key = TITLE_PREF
+            title = TITLE_PREF
+            entries = arrayOf("Full Title", "Short Title")
+            entryValues = arrayOf("full", "short")
+            summary = "%s"
+            setDefaultValue("short")
+
+            setOnPreferenceChangeListener { _, newValue ->
+                displayFullTitle = when (newValue) {
+                    "full" -> true
+                    else -> false
+                }
+                true
+            }
+        }
+        screen.addPreference(titlePref)
         screen.addPreference(memberIdPref)
         screen.addPreference(passHashPref)
         screen.addPreference(enforceLanguagePref)
