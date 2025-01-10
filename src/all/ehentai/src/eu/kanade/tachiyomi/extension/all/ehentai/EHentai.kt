@@ -261,7 +261,9 @@ abstract class EHentai(
     override fun mangaDetailsParse(response: Response) = with(response.asJsoup()) {
         with(ExGalleryMetadata()) {
             url = response.request.url.encodedPath
-            title = select("#gn").text().nullIfBlank()?.trim()
+            title = select("#gn").text().nullIfBlank()?.trim()?.let {
+                if (displayFullTitle) it else it.shortenTitle()
+            }
 
             altTitle = select("#gj").text().nullIfBlank()?.trim()
 
