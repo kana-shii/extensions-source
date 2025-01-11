@@ -202,7 +202,7 @@ class Mangago : ParsedHttpSource(), ConfigurableSource {
 
             description = buildString {
                 append(description)
-                val names = alternativeTitles.takeUnless { it.isBlank() || it.trim().equals("none", ignoreCase = true) }?.let {
+                val names = alternativeTitles.takeUnless { it.isBlank() || it.trim().equals("none", ignoreCase = true) || it.trim().equals("N/A", ignoreCase = true) }?.let {
                     var semicolonSeparated = it.replace(Regex("\\s*(?:;\\s*){2,}"), ";")
                     if (semicolonSeparated.contains(';')) {
                         semicolonSeparated = semicolonSeparated.replace(Regex(";\\s*$"), "")
