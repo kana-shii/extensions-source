@@ -63,7 +63,7 @@ abstract class EHentai(
 
     private var lastMangaId = ""
 
-    private var displayFullTitle: Boolean = when (preferences.getString(TITLE_PREF, "full")) {
+    private var displayFullTitle: Boolean = when (preferences.getString("${TITLE_PREF}_$lang", "full")) {
         "full" -> true
         else -> false
     }
@@ -246,7 +246,7 @@ abstract class EHentai(
                 headers.build()
             } ?: headers,
 
-            ).let {
+        ).let {
             if (!cache) {
                 it.newBuilder().cacheControl(CacheControl.FORCE_NETWORK).build()
             } else {
@@ -265,7 +265,6 @@ abstract class EHentai(
             title = select("#gn").text().nullIfBlank()?.trim()?.let {
                 if (displayFullTitle) it else it.shortenTitle()
             }
-
             altTitle = select("#gj").text().nullIfBlank()?.trim()
 
             // Thumbnail is set as background of element in style attribute
@@ -440,8 +439,7 @@ abstract class EHentai(
         AdvancedGroup(),
     )
 
-    internal open class TextFilter(name: String, val type: String, val specific: String = "") :
-        Filter.Text(name)
+    internal open class TextFilter(name: String, val type: String, val specific: String = "") : Filter.Text(name)
 
     class Watched : CheckBox("Watched List"), UriFilter {
         override fun addToUri(builder: Uri.Builder) {
@@ -614,11 +612,6 @@ abstract class EHentai(
             title = ENFORCE_LANGUAGE_PREF_TITLE
             summary = ENFORCE_LANGUAGE_PREF_SUMMARY
             setDefaultValue(ENFORCE_LANGUAGE_PREF_DEFAULT_VALUE)
-
-            setOnPreferenceChangeListener { _, newValue ->
-                val checkValue = newValue as Boolean
-                preferences.edit().putBoolean("${ENFORCE_LANGUAGE_PREF_KEY}_$lang", checkValue).commit()
-            }
         }
 
         val memberIdPref = EditTextPreference(screen.context).apply {
@@ -643,61 +636,57 @@ abstract class EHentai(
             summary = IGNEOUS_PREF_SUMMARY
 
             setDefaultValue(IGNEOUS_PREF_DEFAULT_VALUE)
-            val titlePref = ListPreference(screen.context).apply {
-                key = TITLE_PREF
-                title = TITLE_PREF
-                entries = arrayOf("Full Title", "Short Title")
-                entryValues = arrayOf("full", "short")
-                summary = "%s"
-                setDefaultValue("short")
-
-                setOnPreferenceChangeListener { _, newValue ->
-                    displayFullTitle = when (newValue) {
-                        "full" -> true
-                        else -> false
-                    }
-                    true
-                }
-            }
-
-            screen.addPreference(forceEhPref)
-            screen.addPreference(titlePref)
-            screen.addPreference(memberIdPref)
-            screen.addPreference(passHashPref)
-            screen.addPreference(igneousPref)
-            screen.addPreference(enforceLanguagePref)
         }
 
-        private fun getEnforceLanguagePref(): Boolean = preferences.getBoolean(
-            "${ENFORCE_LANGUAGE_PREF_KEY}_$lang",
-            ENFORCE_LANGUAGE_PREF_DEFAULT_VALUE
-        )
+        val titlePref = ListPreference(screen.context).apply {
+            key = "${TITLE_PREF}_$lang"
+            title = TITLE_PREF
+            entries = arrayOf("Full Title", "Short Title")
+            entryValues = arrayOf("full", "short")
+            summary = "%s"
+            setDefaultValue("short")
 
-        private fun getCookieValue(
-            cookieTitle: String,
-            defaultValue: String,
-            prefKey: String
-        ): String {
-            val cookies = webViewCookieManager.getCookie("https://forums.e-hentai.org")
-            var value: String? = null
+            setOnPreferenceChangeListener { _, newValue ->
+                displayFullTitle = when (newValue) {
+                    "full" -> true
+                    else -> false
+                }
+                true
+            }
+        }
 
-            if (cookies != null) {
-                val cookieArray = cookies.split("; ")
-                for (cookie in cookieArray) {
-                    if (cookie.startsWith("$cookieTitle=")) {
-                        value = cookie.split("=")[1]
 
-                        break
-                    }
+        screen.addPreference(titlePref)
+        screen.addPreference(forceEhPref)
+        screen.addPreference(memberIdPref)
+        screen.addPreference(passHashPref)
+        screen.addPreference(igneousPref)
+        screen.addPreference(enforceLanguagePref)
+    }
+
+    private fun getEnforceLanguagePref(): Boolean = preferences.getBoolean("${ENFORCE_LANGUAGE_PREF_KEY}_$lang", ENFORCE_LANGUAGE_PREF_DEFAULT_VALUE)
+
+    private fun getCookieValue(cookieTitle: String, defaultValue: String, prefKey: String): String {
+        val cookies = webViewCookieManager.getCookie("https://forums.e-hentai.org")
+        var value: String? = null
+
+        if (cookies != null) {
+            val cookieArray = cookies.split("; ")
+            for (cookie in cookieArray) {
+                if (cookie.startsWith("$cookieTitle=")) {
+                    value = cookie.split("=")[1]
+
+                    break
                 }
             }
-
-            if (value == null) {
-                value = preferences.getString(prefKey, defaultValue) ?: defaultValue
-            }
-
-            return value
         }
+
+        if (value == null) {
+            value = preferences.getString(prefKey, defaultValue) ?: defaultValue
+        }
+
+        return value
+    }
 
     private fun getPassHashPref(): String {
         return getCookieValue(PASS_HASH_PREF_TITLE, PASS_HASH_PREF_DEFAULT_VALUE, PASS_HASH_PREF_KEY)
@@ -707,12 +696,11 @@ abstract class EHentai(
         return getCookieValue(MEMBER_ID_PREF_TITLE, MEMBER_ID_PREF_DEFAULT_VALUE, MEMBER_ID_PREF_KEY)
     }
 
-        private fun getIgneousPref(): String {
-            return getCookieValue(IGNEOUS_PREF_TITLE, IGNEOUS_PREF_DEFAULT_VALUE, IGNEOUS_PREF_KEY)
-        }
+    private fun getIgneousPref(): String {
+        return getCookieValue(IGNEOUS_PREF_TITLE, IGNEOUS_PREF_DEFAULT_VALUE, IGNEOUS_PREF_KEY)
+    }
 
-        private fun getForceEhPref(): Boolean {
-            return preferences.getBoolean(FORCE_EH, FORCE_EH_DEFAULT_VALUE)
-        }
+    private fun getForceEhPref(): Boolean {
+        return preferences.getBoolean(FORCE_EH, FORCE_EH_DEFAULT_VALUE)
     }
 }
