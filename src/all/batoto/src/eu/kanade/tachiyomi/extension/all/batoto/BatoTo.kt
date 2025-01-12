@@ -354,13 +354,17 @@ open class BatoTo(
             .replace(Regex(customRemoveTitle()), "")
             .replace(if (isRemoveTitleVersion()) titleRegex else Regex(""), "")
             .trim()
+        val extraInfo = document.select("div[style=\"white-space: pre-wrap; overflow: auto;\"]")
+            .takeIf { it.isNotEmpty() }
+            ?.html()
+            ?.trim()
+            ?: ""
 
         manga.title = cleanedTitle
         manga.author = infoElement.select("div.attr-item:contains(author) span").text()
         manga.artist = infoElement.select("div.attr-item:contains(artist) span").text()
         manga.status = parseStatus(workStatus, uploadStatus)
         manga.genre = infoElement.select(".attr-item b:contains(genres) + span ").joinToString { it.text() }
-
         manga.description = buildString {
             val names = alternativeTitles.takeUnless { it.isBlank() }
                 ?.split("/")
@@ -376,6 +380,9 @@ open class BatoTo(
                 if (!names.isNullOrEmpty()) {
                     append("\n\nAlternative Names:\n", names)
                 }
+            }
+            if (extraInfo.isNotBlank()) {
+                append("\n\nExtra Info:\n", extraInfo)
             }
         }
 
