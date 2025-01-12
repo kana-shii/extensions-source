@@ -7,7 +7,6 @@ import android.net.Uri
 import android.webkit.CookieManager
 import androidx.preference.CheckBoxPreference
 import androidx.preference.EditTextPreference
-import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.asObservableSuccess
@@ -49,25 +48,19 @@ abstract class EHentai(
     private val webViewCookieManager: CookieManager by lazy { CookieManager.getInstance() }
     private val memberId: String by lazy { getMemberIdPref() }
     private val passHash: String by lazy { getPassHashPref() }
+    private val igneous: String by lazy { getIgneousPref() }
+    private val forceEh: Boolean by lazy { getForceEhPref() }
 
     override val baseUrl: String
         get() = when {
             System.getenv("CI") == "true" -> "https://e-hentai.org"
-            memberId.isNotEmpty() && passHash.isNotEmpty() -> "https://exhentai.org"
+            !forceEh && memberId.isNotEmpty() && passHash.isNotEmpty() -> "https://exhentai.org"
             else -> "https://e-hentai.org"
         }
 
     override val supportsLatest = true
 
     private var lastMangaId = ""
-
-    // Title Preference Logic
-    private var displayFullTitle: Boolean = when (preferences.getString(TITLE_PREF, "full")) {
-        "full" -> true
-        else -> false
-    }
-    private val shortenTitleRegex = Regex("""(\[[^]]*]|[({][^)}]*[)}])""")
-    private fun String.shortenTitle() = this.replace(shortenTitleRegex, "").trim()
 
     // true if lang is a "natural human language"
     private fun isLangNatural(): Boolean = lang !in listOf("none", "other")
@@ -92,9 +85,7 @@ abstract class EHentai(
                 SManga.create().apply {
                     // Get title
                     it.selectFirst("a")?.apply {
-                        title = this.select(".glink").text().let {
-                            if (displayFullTitle) it.trim() else it.shortenTitle()
-                        }
+                        title = this.select(".glink").text()
                         url = ExGalleryMetadata.normalizeUrl(attr("href"))
                         if (i == mangaElements.lastIndex) {
                             lastMangaId = ExGalleryMetadata.galleryId(attr("href"))
@@ -120,7 +111,7 @@ abstract class EHentai(
         listOf(
             SChapter.create().apply {
                 url = manga.url
-                name = "Chapter 1"
+                name = "Chapter"
                 chapter_number = 1f
             },
         ),
@@ -181,18 +172,18 @@ abstract class EHentai(
             query.isBlank() -> languageTag(enforceLanguageFilter)
             else -> languageTag(enforceLanguageFilter).let { if (it.isNotEmpty()) "$query,$it" else query }
         }
-        filters.filterIsInstance<TextFilter>().forEach { it ->
-            if (it.state.isNotEmpty()) {
-                val splitted = it.state.split(",").filter(String::isNotBlank)
-                if (splitted.size < 2 && it.type != "tags") {
-                    modifiedQuery += " ${it.type}:\"${it.state.replace(" ", "+")}\""
+        filters.filterIsInstance<TextFilter>().forEach { filter ->
+            if (filter.state.isNotEmpty()) {
+                val splitted = filter.state.split(",").filter(String::isNotBlank)
+                if (splitted.size < 2 && filter.type != "tags") {
+                    modifiedQuery += " ${filter.type}:\"${filter.state.replace(" ", "+")}\""
                 } else {
                     splitted.forEach { tag ->
                         val trimmed = tag.trim().lowercase()
-                        if (trimmed.startsWith('-')) {
-                            modifiedQuery += " -${it.type}:\"${trimmed.removePrefix("-").replace(" ", "+")}\""
+                        modifiedQuery += if (trimmed.startsWith('-')) {
+                            " -${filter.type}:\"${trimmed.removePrefix("-").replace(" ", "+")}\""
                         } else {
-                            modifiedQuery += " ${it.type}:\"${trimmed.replace(" ", "+")}\""
+                            " ${filter.type}:\"${trimmed.replace(" ", "+")}\""
                         }
                     }
                 }
@@ -245,7 +236,7 @@ abstract class EHentai(
                 headers.build()
             } ?: headers,
 
-        ).let {
+            ).let {
             if (!cache) {
                 it.newBuilder().cacheControl(CacheControl.FORCE_NETWORK).build()
             } else {
@@ -261,9 +252,7 @@ abstract class EHentai(
     override fun mangaDetailsParse(response: Response) = with(response.asJsoup()) {
         with(ExGalleryMetadata()) {
             url = response.request.url.encodedPath
-            title = select("#gn").text().nullIfBlank()?.trim()?.let {
-                if (displayFullTitle) it else it.shortenTitle()
-            }
+            title = select("#gn").text().nullIfBlank()?.trim()
 
             altTitle = select("#gj").text().nullIfBlank()?.trim()
 
@@ -391,7 +380,7 @@ abstract class EHentai(
 
         cookies["ipb_pass_hash"] = passHash
 
-        cookies["igneous"] = ""
+        cookies["igneous"] = igneous
 
         buildCookies(cookies)
     }
@@ -427,6 +416,7 @@ abstract class EHentai(
     // Filters
     override fun getFilterList() = FilterList(
         EnforceLanguageFilter(getEnforceLanguagePref()),
+        Favorites(),
         Watched(),
         GenreGroup(),
         Filter.Header("Separate tags with commas (,)"),
@@ -444,6 +434,14 @@ abstract class EHentai(
         override fun addToUri(builder: Uri.Builder) {
             if (state) {
                 builder.appendPath("watched")
+            }
+        }
+    }
+
+    class Favorites : CheckBox("Favorites"), UriFilter {
+        override fun addToUri(builder: Uri.Builder) {
+            if (state) {
+                builder.appendPath("favorites.php")
             }
         }
     }
@@ -563,7 +561,7 @@ abstract class EHentai(
         private const val ENFORCE_LANGUAGE_PREF_KEY = "ENFORCE_LANGUAGE"
         private const val ENFORCE_LANGUAGE_PREF_TITLE = "Enforce Language"
         private const val ENFORCE_LANGUAGE_PREF_SUMMARY = "If checked, forces browsing of manga matching a language tag"
-        private const val ENFORCE_LANGUAGE_PREF_DEFAULT_VALUE = true
+        private const val ENFORCE_LANGUAGE_PREF_DEFAULT_VALUE = false
 
         private const val MEMBER_ID_PREF_KEY = "MEMBER_ID"
         private const val MEMBER_ID_PREF_TITLE = "ipb_member_id"
@@ -575,22 +573,32 @@ abstract class EHentai(
         private const val PASS_HASH_PREF_SUMMARY = "ipb_pass_hash value"
         private const val PASS_HASH_PREF_DEFAULT_VALUE = ""
 
-        private const val TITLE_PREF = "Display manga title as:"
+        private const val IGNEOUS_PREF_KEY = "IGNEOUS"
+        private const val IGNEOUS_PREF_TITLE = "igneous"
+        private const val IGNEOUS_PREF_SUMMARY = "igneous value override"
+        private const val IGNEOUS_PREF_DEFAULT_VALUE = ""
+
+        private const val FORCE_EH = "FORCE_EH"
+        private const val FORCE_EH_TITLE = "Force e-hentai"
+        private const val FORCE_EH_SUMMARY = "Force e-hentai to avoid content on exhentai"
+        private const val FORCE_EH_DEFAULT_VALUE = true
     }
 
     // Preferences
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        val forceEhPref = CheckBoxPreference(screen.context).apply {
+            key = FORCE_EH
+            title = FORCE_EH_TITLE
+            summary = FORCE_EH_SUMMARY
+            setDefaultValue(FORCE_EH_DEFAULT_VALUE)
+        }
+
         val enforceLanguagePref = CheckBoxPreference(screen.context).apply {
             key = "${ENFORCE_LANGUAGE_PREF_KEY}_$lang"
             title = ENFORCE_LANGUAGE_PREF_TITLE
             summary = ENFORCE_LANGUAGE_PREF_SUMMARY
             setDefaultValue(ENFORCE_LANGUAGE_PREF_DEFAULT_VALUE)
-
-            setOnPreferenceChangeListener { _, newValue ->
-                val checkValue = newValue as Boolean
-                preferences.edit().putBoolean("${ENFORCE_LANGUAGE_PREF_KEY}_$lang", checkValue).commit()
-            }
         }
 
         val memberIdPref = EditTextPreference(screen.context).apply {
@@ -609,25 +617,18 @@ abstract class EHentai(
             setDefaultValue(PASS_HASH_PREF_DEFAULT_VALUE)
         }
 
-        val titlePref = ListPreference(screen.context).apply {
-            key = TITLE_PREF
-            title = TITLE_PREF
-            entries = arrayOf("Full Title", "Short Title")
-            entryValues = arrayOf("full", "short")
-            summary = "%s"
-            setDefaultValue("short")
+        val igneousPref = EditTextPreference(screen.context).apply {
+            key = IGNEOUS_PREF_KEY
+            title = IGNEOUS_PREF_TITLE
+            summary = IGNEOUS_PREF_SUMMARY
 
-            setOnPreferenceChangeListener { _, newValue ->
-                displayFullTitle = when (newValue) {
-                    "full" -> true
-                    else -> false
-                }
-                true
-            }
+            setDefaultValue(IGNEOUS_PREF_DEFAULT_VALUE)
         }
-        screen.addPreference(titlePref)
+
+        screen.addPreference(forceEhPref)
         screen.addPreference(memberIdPref)
         screen.addPreference(passHashPref)
+        screen.addPreference(igneousPref)
         screen.addPreference(enforceLanguagePref)
     }
 
@@ -661,5 +662,13 @@ abstract class EHentai(
 
     private fun getMemberIdPref(): String {
         return getCookieValue(MEMBER_ID_PREF_TITLE, MEMBER_ID_PREF_DEFAULT_VALUE, MEMBER_ID_PREF_KEY)
+    }
+
+    private fun getIgneousPref(): String {
+        return getCookieValue(IGNEOUS_PREF_TITLE, IGNEOUS_PREF_DEFAULT_VALUE, IGNEOUS_PREF_KEY)
+    }
+
+    private fun getForceEhPref(): Boolean {
+        return preferences.getBoolean(FORCE_EH, FORCE_EH_DEFAULT_VALUE)
     }
 }
