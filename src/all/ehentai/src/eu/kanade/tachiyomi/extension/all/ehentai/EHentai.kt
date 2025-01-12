@@ -246,7 +246,7 @@ abstract class EHentai(
                 headers.build()
             } ?: headers,
 
-        ).let {
+            ).let {
             if (!cache) {
                 it.newBuilder().cacheControl(CacheControl.FORCE_NETWORK).build()
             } else {
@@ -654,7 +654,7 @@ abstract class EHentai(
                 true
             }
         }
-        
+
         screen.addPreference(titlePref)
         screen.addPreference(forceEhPref)
         screen.addPreference(memberIdPref)
