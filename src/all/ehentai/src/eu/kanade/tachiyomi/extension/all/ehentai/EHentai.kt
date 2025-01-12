@@ -654,8 +654,7 @@ abstract class EHentai(
                 true
             }
         }
-
-
+        
         screen.addPreference(titlePref)
         screen.addPreference(forceEhPref)
         screen.addPreference(memberIdPref)
