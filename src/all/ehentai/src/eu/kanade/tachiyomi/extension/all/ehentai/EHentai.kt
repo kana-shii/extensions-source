@@ -715,3 +715,4 @@ abstract class EHentai(
             return preferences.getBoolean(FORCE_EH, FORCE_EH_DEFAULT_VALUE)
         }
     }
+}
